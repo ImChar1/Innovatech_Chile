@@ -11,11 +11,14 @@ provider "aws" {
   region = var.aws_region
 }
 
-#RED VPC , SUBNET , GATEWAY
+# ==========================================
+# 1. RED VPC , SUBNETS Y GATEWAY
+# ==========================================
 
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
+  tags = { Name = "${var.project_name}-vpc" }
 }
 
 resource "aws_subnet" "public" {
@@ -23,15 +26,13 @@ resource "aws_subnet" "public" {
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "${var.aws_region}a"
   map_public_ip_on_launch = true
+  tags = { Name = "${var.project_name}-public-subnet" }
 }
-
-
-#gateway
 
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
+  tags = { Name = "${var.project_name}-igw" }
 }
-
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
@@ -39,6 +40,7 @@ resource "aws_route_table" "public" {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.main.id
   }
+  tags = { Name = "${var.project_name}-public-rt" }
 }
 
 resource "aws_route_table_association" "public" {
@@ -46,31 +48,27 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+# ==========================================
+# 2. SECURITY GROUPS (REQUISITO DE SEGURIDAD DE LA RÚBRICA)
+# ==========================================
 
-#SECURITY GROUP 
-
-resource "aws_security_group" "main" {
-  name   = "${var.project_name}-sg"
-  vpc_id = aws_vpc.main.id
+# SG para el Frontend (Público a Internet)
+resource "aws_security_group" "frontend" {
+  name        = "${var.project_name}-frontend-sg"
+  description = "Permite trafico HTTP externo para el Frontend"
+  vpc_id      = aws_vpc.main.id
 
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] # SSH para el pipeline de GitHub Actions
   }
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  # Puertos para Back-Despachos (8080) y Back-Ventas (8081)
-  ingress {
-    from_port   = 8080
-    to_port     = 8081
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] # Acceso Web público
   }
   egress {
     from_port   = 0
@@ -80,36 +78,45 @@ resource "aws_security_group" "main" {
   }
 }
 
+# SG para los Backends y la BD (Restringido)
+resource "aws_security_group" "backend" {
+  name        = "${var.project_name}-backend-sg"
+  description = "Solo permite trafico interno desde el Frontend y SSH"
+  vpc_id      = aws_vpc.main.id
 
-#COMUNIACION INTERNA?? NOSE SI ESTA BUENO 
-
-resource "aws_security_group_rule" "mysql_internal" {
-  type                     = "ingress"
-  from_port                = 3306
-  to_port                  = 3306
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.main.id
-  source_security_group_id = aws_security_group.main.id
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # SSH para el pipeline de GitHub Actions
+  }
+  ingress {
+    from_port   = 8080
+    to_port     = 8081
+    protocol    = "tcp"
+    security_groups = [aws_security_group.frontend.id] # Solo el Front puede consultar los backends
+  }
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    self        = true # Permite comunicación interna con MySQL en la misma máquina
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
-#ECR REPOSITORIOS 
+# ==========================================
+# 3. ORIGEN DE DATOS (ECR Y AMIs)
+# ==========================================
 
-resource "aws_ecr_repository" "frontend" {
-  name         = "${var.project_name}-frontend"
-  force_delete = true
-}
-
-resource "aws_ecr_repository" "back_despachos" {
-  name         = "${var.project_name}-back-despachos"
-  force_delete = true
-}
-
-resource "aws_ecr_repository" "back_ventas" {
-  name         = "${var.project_name}-back-ventas"
-  force_delete = true
-}
-
-# EC2 MYSQL ejemplo del proyecto anterior 
+data "aws_ecr_repository" "frontend" { name = "${var.project_name}-frontend" }
+data "aws_ecr_repository" "back_despachos" { name = "${var.project_name}-backend-despachos" }
+data "aws_ecr_repository" "back_ventas" { name = "${var.project_name}-backend-ventas" }
 
 data "aws_ami" "amazon_linux" {
   most_recent = true
@@ -120,26 +127,17 @@ data "aws_ami" "amazon_linux" {
   }
 }
 
-data "aws_ami" "amazon_linux" {
-  most_recent = true
-  owners      = ["amazon"]
-  filter {
-    name   = "name"
-    values = ["al2023-ami-*-x86_64"]
-  }
-}
+# ==========================================
+# 4. INSTANCIAS EC2 SEPARADAS (REQUISITO EXPLICITO)
+# ==========================================
 
-resource "aws_instance" "db" {
+# Instancia 1: Servidor Web Frontend
+resource "aws_instance" "frontend" {
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = "t3.micro"
   subnet_id              = aws_subnet.public.id
-  vpc_security_group_ids = [aws_security_group.main.id]
+  vpc_security_group_ids = [aws_security_group.frontend.id]
   key_name               = var.key_pair_name
-
-  root_block_device {
-    volume_size = 20
-    volume_type = "gp3"
-  }
 
   user_data = <<-EOF
     #!/bin/bash
@@ -147,195 +145,29 @@ resource "aws_instance" "db" {
     yum install -y docker
     systemctl start docker
     systemctl enable docker
-    until docker info > /dev/null 2>&1; do sleep 3; done
-    docker run -d --name mysql \
-    -e MYSQL_ROOT_PASSWORD=${var.db_password} \
-    -e MYSQL_DATABASE=${var.db_name} \
-    -e MYSQL_ROOT_HOST=% \
-    -p 3306:3306 \
-    mysql:8-oracle --bind-address=0.0.0.0
   EOF
 
-  tags = { Name = "${var.project_name}-mysql" }
+  tags = { Name = "${var.project_name}-frontend-server" }
 }
 
+# Instancia 2: Servidor de Microservicios Backend y MySQL
+resource "aws_instance" "backend" {
+  ami                    = data.aws_ami.amazon_linux.id
+  instance_type          = "t3.small" # t3.small tiene 2GB de RAM para aguantar los 2 backends + MySQL cómodos
+  subnet_id              = aws_subnet.public.id
+  vpc_security_group_ids = [aws_security_group.backend.id]
+  key_name               = var.key_pair_name
 
-#EC2 Y CLOUD WATCH
+  user_data = <<-EOF
+    #!/bin/bash
+    yum update -y
+    yum install -y docker
+    systemctl start docker
+    systemctl enable docker
+    # Instalar Docker Compose de forma automatica
+    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    chmod +x /usr/local/bin/docker-compose
+  EOF
 
-resource "aws_ecs_cluster" "main" {
-  name = "${var.project_name}-cluster"
+  tags = { Name = "${var.project_name}-backend-server" }
 }
-
-resource "aws_cloudwatch_log_group" "ecs" {
-  name              = "/ecs/${var.project_name}"
-  retention_in_days = 7
-}
-
-data "aws_iam_role" "lab" {
-  name = "LabRole"
-}
-
-
-# TASK APP (Triple Contenedor)
-resource "aws_ecs_task_definition" "app" {
-  family                   = "${var.project_name}-app"
-  network_mode             = "awsvpc"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "1024"
-  memory                   = "3072" # Aumentamos a 3GB para que los 3 servicios corran cómodos
-  execution_role_arn       = data.aws_iam_role.lab.arn
-
-  container_definitions = jsonencode([
-
-    # 1. CONTENEDOR: BACKEND DESPACHOS
-    {
-      name  = "backend-despachos"
-      image = "${aws_ecr_repository.back_despachos.repository_url}:latest"
-
-      portMappings = [
-        {
-          containerPort = 8080
-        }
-      ]
-      healthCheck = {
-        command     = ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health/readiness || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 5
-        startPeriod = 120
-      }
-
-      environment = [
-        {
-          name  = "DB_HOST",
-          value = aws_instance.db.private_ip
-        },
-        {
-          name  = "SPRING_DATASOURCE_URL"
-          value = "jdbc:mysql://${aws_instance.db.private_ip}:3306/${var.db_name}"
-        },
-        {
-          name  = "SPRING_DATASOURCE_USERNAME"
-          value = var.db_user
-        },
-        {
-          name  = "SPRING_DATASOURCE_PASSWORD"
-          value = var.db_password
-        }
-      ]
-      logConfiguration = {
-        logDriver = "awslogs",
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.ecs.name,
-          awslogs-region        = var.aws_region,
-          awslogs-stream-prefix = "backend-despachos"
-        }
-      }
-    },
-
-    # 2. CONTENEDOR: BACKEND VENTAS
-    {
-      name  = "backend-ventas"
-      image = "${aws_ecr_repository.back_ventas.repository_url}:latest"
-
-      portMappings = [
-        {
-          containerPort = 8081 # Usamos 8081 para que no choque con el otro backend
-        }
-      ]
-      healthCheck = {
-        command     = ["CMD-SHELL", "curl -f http://localhost:8081/actuator/health/readiness || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 5
-        startPeriod = 120
-      }
-
-      environment = [
-        {
-          name  = "DB_HOST",
-          value = aws_instance.db.private_ip
-        },
-        {
-          name  = "SPRING_DATASOURCE_URL"
-          value = "jdbc:mysql://${aws_instance.db.private_ip}:3306/${var.db_name}"
-        },
-        {
-          name  = "SPRING_DATASOURCE_USERNAME"
-          value = var.db_user
-        },
-        {
-          name  = "SPRING_DATASOURCE_PASSWORD"
-          value = var.db_password
-        }
-      ]
-      logConfiguration = {
-        logDriver = "awslogs",
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.ecs.name,
-          awslogs-region        = var.aws_region,
-          awslogs-stream-prefix = "backend-ventas"
-        }
-      }
-    },
-
-    # 3. CONTENEDOR: FRONTEND
-    {
-      name  = "frontend"
-      image = "${aws_ecr_repository.frontend.repository_url}:latest"
-
-      portMappings = [
-        {
-          containerPort = 80
-        }
-      ]
-
-      # El frontend ahora depende de que AMBOS backends inicien
-      dependsOn = [
-        {
-          containerName = "backend-despachos",
-          condition     = "START"
-        },
-        {
-          containerName = "backend-ventas",
-          condition     = "START"
-        }
-      ]
-      logConfiguration = {
-        logDriver = "awslogs",
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.ecs.name,
-          awslogs-region        = var.aws_region,
-          awslogs-stream-prefix = "frontend"
-        }
-      }
-    }
-
-  ])
-}
-
-##corregir por mientras el taskk 
-
-
-############################
-# SERVICE
-############################
-resource "aws_ecs_service" "app" {
-  name            = "app-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.app.arn
-  launch_type     = "FARGATE"
-  desired_count   = 1
-  force_new_deployment = true
-
-  network_configuration {
-    subnets          = [aws_subnet.public.id]
-    security_groups  = [aws_security_group.main.id]
-    assign_public_ip = true
-  }
-}
-
-
-
-
-
