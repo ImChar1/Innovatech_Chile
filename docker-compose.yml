@@ -1,0 +1,64 @@
+services:
+  # 1. BASE DE DATOS (Con volumen nombrado para persistencia)
+  mysql:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql # <- PUNTO 2 DE LA RÚBRICA: Named volume
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. BACKEND DE VENTAS
+  backend-ventas:
+    build: ./microservicio-ventas # Ruta a la carpeta de ventas
+    image: tech_ventas:1.0
+    ports:
+      - "8080:8080" # Mapea el puerto 8080 interno al 8080 externo
+    environment:
+      DB_ENDPOINT: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DB_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # 3. BACKEND DE DESPACHO
+  backend-despacho:
+    build: ./microservicio-despacho # Ruta a la carpeta de despacho
+    image: tech_despacho:1.0
+    ports:
+      - "8081:8081" # <- Evitamos colisión usando el puerto 8081 externo e interno
+    environment:
+      DB_ENDPOINT: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USERNAME: root
+      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      DB_HOST: mysql
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # 4. FRONTEND
+  frontend:
+    build: ./frontend
+    image: frontend:1.0
+    ports:
+      - "3000:80" # Tu app se verá en el navegador en el puerto 3000
+    depends_on:
+      - backend-ventas
+      - backend-despacho
+
+# DECLARACIÓN DEL VOLUMEN NOMBRADO (Persistencia fuera del contenedor)
+volumes:
+  mysql_data:
