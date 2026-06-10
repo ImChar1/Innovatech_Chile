@@ -1,5 +1,5 @@
 # .github/workflows/cd.yml
-name: CD - Innovatech Chile
+#name: CD - Innovatech Chile
 
 on:
   push:
