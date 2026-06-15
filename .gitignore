@@ -9,3 +9,4 @@
 # Ignorar archivos de variables secretas si existieran
 *.tfvars
 *.tfvars.json
+.env

@@ -3,14 +3,16 @@ services:
   mysql:
     image: mysql:8
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_USER: ${DB_USERNAME}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_PASSWORD: ${DB_PASSWORD}  
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql # <- PUNTO 2 DE LA RÚBRICA: Named volume
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,12 +24,12 @@ services:
     ports:
       - "8080:8080" # Mapea el puerto 8080 interno al 8080 externo
     environment:
-      DB_ENDPOINT: mysql
-      DB_PORT: 3306
+      DB_ENDPOINT: ${DB_ENDPOINT}
+      DB_PORT: ${DB_PORT}
       DB_NAME: ${MYSQL_DATABASE}
-      DB_USERNAME: root
-      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      DB_HOST: mysql
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
     depends_on:
       mysql:
         condition: service_healthy
@@ -39,12 +41,12 @@ services:
     ports:
       - "8081:8081" # <- Evitamos colisión usando el puerto 8081 externo e interno
     environment:
-      DB_ENDPOINT: mysql
-      DB_PORT: 3306
+      DB_ENDPOINT: ${DB_ENDPOINT}
+      DB_PORT: ${DB_PORT}
       DB_NAME: ${MYSQL_DATABASE}
-      DB_USERNAME: root
-      DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      DB_HOST: mysql
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
     depends_on:
       mysql:
         condition: service_healthy
