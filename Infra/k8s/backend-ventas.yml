@@ -1,0 +1,47 @@
+# Despliegue Backend Ventas
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-ventas
+spec:
+  replicas: 2 # Puedes poner 1 si quieres ahorrar recursos
+  selector:
+    matchLabels:
+      app: backend-ventas
+  template:
+    metadata:
+      labels:
+        app: backend-ventas
+    spec:
+      containers:
+        - name: backend-ventas
+          image: TU_URL_DE_ECR/tu_repositorio_ventas:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_ENDPOINT
+              value: "mysql" # Se conecta al nombre del Service de K8s
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: "innova_tech_db"
+            - name: DB_USERNAME
+              value: "root"
+            - name: DB_PASSWORD
+              value: "us_pass"
+            - name: DB_HOST
+              value: "mysql"
+---
+# Servicio Backend Ventas (Interno)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-ventas
+spec:
+  selector:
+    app: backend-ventas
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: ClusterIP

@@ -1,1 +1,42 @@
-#code
+# Despliegue de MySQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: TU_URL_DE_ECR/tu_repositorio_mysql:latest # <- Debes subir la imagen que creaste con tu Dockerfile
+          ports:
+            - containerPort: 3306
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: "root"
+            - name: MYSQL_DATABASE
+              value: "innova_tech_db"
+            - name: MYSQL_USER
+              value: "root" # <- Usando el que corregimos antes
+            - name: MYSQL_PASSWORD
+              value: "us_pass"
+---
+# Servicio de MySQL (Interno)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+spec:
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+      targetPort: 3306
+  type: ClusterIP

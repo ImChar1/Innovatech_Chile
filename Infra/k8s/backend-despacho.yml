@@ -1,0 +1,47 @@
+# Despliegue Backend Despacho
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-despacho
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-despacho
+  template:
+    metadata:
+      labels:
+        app: backend-despacho
+    spec:
+      containers:
+        - name: backend-despacho
+          image: TU_URL_DE_ECR/tu_repositorio_despacho:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8081
+          env:
+            - name: DB_ENDPOINT
+              value: "mysql"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: "innova_tech_db"
+            - name: DB_USERNAME
+              value: "root"
+            - name: DB_PASSWORD
+              value: "us_pass"
+            - name: DB_HOST
+              value: "mysql"
+---
+# Servicio Backend Despacho (Interno)
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-despacho
+spec:
+  selector:
+    app: backend-despacho
+  ports:
+    - port: 8081
+      targetPort: 8081
+  type: ClusterIP
