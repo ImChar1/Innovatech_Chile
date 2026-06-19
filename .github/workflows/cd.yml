@@ -40,10 +40,10 @@ jobs:
       
       - name: Build y Push MySQL personalizado
         run: |
-          cd db
           docker buildx build \
             --platform linux/amd64 \
             -t $MYSQL_ECR:${GITHUB_SHA} \
+            -f db/Dockerfile \
             . \
             --push
 
