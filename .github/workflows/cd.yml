@@ -3,7 +3,7 @@ name: Despliegue en AWS con EKS (Innovatech Chile)
 on:
   push:
     branches:
-      - "develop"
+      - "feature/prueba-pipeline"
 
 jobs:
   deploy:
