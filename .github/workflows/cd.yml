@@ -38,14 +38,11 @@ jobs:
           echo "FRONTEND_ECR=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/innovatech-frontend" >> $GITHUB_ENV
           echo "MYSQL_ECR=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/innovatech-chile-mysql" >> $GITHUB_ENV
       
-      - name: Build y Push MySQL personalizado
+      - name: Pull y Push MySQL Oficial a ECR
         run: |
-          docker buildx build \
-            --platform linux/amd64 \
-            -t $MYSQL_ECR:${GITHUB_SHA} \
-            -f db/Dockerfile \
-            . \
-            --push
+          docker pull mysql:8
+          docker tag mysql:8 $MYSQL_ECR:${GITHUB_SHA}
+          docker push $MYSQL_ECR:${GITHUB_SHA}
 
       - name: Build y Push backend ventas
         run: |
