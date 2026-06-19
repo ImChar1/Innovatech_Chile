@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: TU_URL_DE_ECR/tu_repositorio_mysql:latest # <- Debes subir la imagen que creaste con tu Dockerfile
+          image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/innovatech-chile-mysql:latest # <- Debes subir la imagen que creaste con tu Dockerfile
           ports:
             - containerPort: 3306
           env:

@@ -1,114 +1,136 @@
-# .github/workflows/cd.yml
-#name: CD - Innovatech Chile
+name: Despliegue en AWS con EKS (Innovatech Chile)
 
 on:
   push:
     branches:
-      - release/0.1.0
-
-env:
-  AWS_REGION: us-east-1
+      - "develop"
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
+    env:
+      AWS_REGION: us-east-1
+      CLUSTER_NAME: innovatech-chile-cluster
 
     steps:
-      # ─────────────────────────────────────
-      # 1. CHECKOUT
-      # ─────────────────────────────────────
-      - name: Checkout del código
-        uses: actions/checkout@v3
+      - name: Checkout (git clone...)
+        uses: actions/checkout@v4
 
-      # ─────────────────────────────────────
-      # 2. CREDENCIALES AWS
-      # ─────────────────────────────────────
-      - name: Configurar credenciales AWS
-        uses: aws-actions/configure-aws-credentials@v2
+      - name: Configurar credenciales de AWS
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ env.AWS_REGION }}
-
-      # ─────────────────────────────────────
-      # 3. LOGIN EN ECR
-      # ─────────────────────────────────────
-      - name: Login en ECR
-        id: login-ecr
+      
+      - name: Loguear con ECR (elastic container registry)
         uses: aws-actions/amazon-ecr-login@v2
-
-      # ─────────────────────────────────────
-      # 4. BUILD Y PUSH - BACKEND VENTAS
-      # ─────────────────────────────────────
-      - name: Build y Push - Backend Ventas
+      
+      - name: Rescatar el AWS Account ID
         run: |
-          docker build --platform linux/amd64 \
-            -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/innovatech-chile-backend-ventas:latest \
-            ./back-Ventas_SpringBoot
-          docker push \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/innovatech-chile-backend-ventas:latest
+          echo "ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_ENV
 
-      # ─────────────────────────────────────
-      # 5. BUILD Y PUSH - BACKEND DESPACHOS
-      # ─────────────────────────────────────
-      - name: Build y Push - Backend Despachos
+      - name: Definir las URL de los ECR
         run: |
-          docker build --platform linux/amd64 \
-            -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/innovatech-chile-backend-despachos:latest \
-            ./back-Despachos_SpringBoot
-          docker push \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/innovatech-chile-backend-despachos:latest
-
-      # ─────────────────────────────────────
-      # 6. BUILD Y PUSH - FRONTEND
-      # ─────────────────────────────────────
-      - name: Build y Push - Frontend
+          echo "VENTAS_ECR=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/innovatech-chile-backend-ventas" >> $GITHUB_ENV
+          echo "DESPACHOS_ECR=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/innovatech-chile-backend-despachos" >> $GITHUB_ENV
+          echo "FRONTEND_ECR=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/innovatech-frontend" >> $GITHUB_ENV
+          echo "MYSQL_ECR=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/innovatech-chile-mysql" >> $GITHUB_ENV
+      
+      - name: Build MySQL personalizado
         run: |
-          docker build --platform linux/amd64 \
-            -t ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/innovatech-chile-frontend:latest \
-            ./front_despacho
-          docker push \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/innovatech-chile-frontend:latest
+          docker buildx build \
+            --platform linux/amd64 \
+            -t $MYSQL_ECR:${GITHUB_SHA} \
+            ./db \
+            --load
 
-      # ─────────────────────────────────────
-      # 7. DEPLOY EN EC2 BACKEND (ventas + despachos + mysql)
-      # ─────────────────────────────────────
-      - name: Deploy en EC2 Backend
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.EC2_BACKEND_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            # Login en ECR desde la EC2
-            aws ecr get-login-password --region us-east-1 | \
-              docker login --username AWS --password-stdin \
-              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+      - name: Push MySQL personalizado
+        run: |
+          docker push $MYSQL_ECR:${GITHUB_SHA}
 
-            # Pull de las imágenes nuevas
-            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/innovatech-chile-backend-ventas:latest
-            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/innovatech-chile-backend-despachos:latest
+      - name: Build backend ventas
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -t $VENTAS_ECR:${GITHUB_SHA} \
+            ./back-Ventas_SpringBoot/Springboot-API-REST \
+            --load
 
-            # Reiniciar solo los backends sin bajar mysql
-            cd /home/ec2-user/app
-            docker compose up -d --no-deps --pull always backend-ventas backend-despacho
+      - name: Push backend ventas
+        run: |
+          docker push $VENTAS_ECR:${GITHUB_SHA}
 
-      # ─────────────────────────────────────
-      # 8. DEPLOY EN EC2 FRONTEND
-      # ─────────────────────────────────────
-      - name: Deploy en EC2 Frontend
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.EC2_FRONTEND_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            aws ecr get-login-password --region us-east-1 | \
-              docker login --username AWS --password-stdin \
-              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+      - name: Build backend despachos
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -t $DESPACHOS_ECR:${GITHUB_SHA} \
+            ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO \
+            --load
 
-            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com/innovatech-chile-frontend:latest
+      - name: Push backend despachos
+        run: |
+          docker push $DESPACHOS_ECR:${GITHUB_SHA}
 
-            cd /home/ec2-user/app
-            docker compose up -d --no-deps --pull always frontend
+      - name: Build frontend
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -t $FRONTEND_ECR:${GITHUB_SHA} \
+            ./front_despacho \
+            --load
+
+      - name: Push frontend
+        run: |
+          docker push $FRONTEND_ECR:${GITHUB_SHA}
+      
+      - name: Instalar kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Configurar EKS a través de GitHub Actions
+        run: |
+          aws eks update-kubeconfig \
+            --region $AWS_REGION \
+            --name $CLUSTER_NAME
+            
+      - name: Aplicar los manifiestos de kubernetes
+        run: |
+          kubectl apply -f infra/k8s/
+          
+      - name: Actualizar imagen de MySQL
+        run: |
+          kubectl set image deployment/mysql \
+            mysql=$MYSQL_ECR:${GITHUB_SHA}
+
+      - name: Actualizar imagen del Backend Despacho
+        run: |
+          kubectl set image deployment/backend-despacho \
+            backend-despacho=$DESPACHOS_ECR:${GITHUB_SHA}
+
+      - name: Actualizar imagen del Backend Ventas
+        run: |
+          kubectl set image deployment/backend-ventas \
+            backend-ventas=$VENTAS_ECR:${GITHUB_SHA}
+
+      - name: Actualizar imagen del Frontend
+        run: |
+          kubectl set image deployment/frontend \
+            frontend=$FRONTEND_ECR:${GITHUB_SHA}
+      
+      - name: Esperar despliegue de MySQL
+        run: |
+          kubectl rollout status deployment/mysql
+
+      - name: Esperar despliegue de despacho
+        run: |
+          kubectl rollout status deployment/backend-despacho
+          
+      - name: Esperar despliegue de ventas
+        run: |
+          kubectl rollout status deployment/backend-ventas
+
+      - name: Esperar despliegue del frontend
+        run: |
+          kubectl rollout status deployment/frontend
