@@ -62,10 +62,11 @@ jobs:
 
       - name: Build y Push frontend
         run: |
+          cd front_despacho
           docker buildx build \
             --platform linux/amd64 \
             -t $FRONTEND_ECR:${GITHUB_SHA} \
-            ./front_despacho \
+            . \
             --push
       
       - name: Instalar kubectl
