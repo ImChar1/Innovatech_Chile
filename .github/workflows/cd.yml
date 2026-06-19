@@ -80,7 +80,7 @@ jobs:
             
       - name: Aplicar los manifiestos de kubernetes
         run: |
-          kubectl apply -f infra/k8s/
+          kubectl apply -f Infra/k8s/
           
       - name: Actualizar imagen de MySQL
         run: |
