@@ -38,53 +38,38 @@ jobs:
           echo "FRONTEND_ECR=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/innovatech-frontend" >> $GITHUB_ENV
           echo "MYSQL_ECR=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/innovatech-chile-mysql" >> $GITHUB_ENV
       
-      - name: Build MySQL personalizado
+      - name: Build y Push MySQL personalizado
         run: |
+          cd db
           docker buildx build \
             --platform linux/amd64 \
             -t $MYSQL_ECR:${GITHUB_SHA} \
-            ./db \
-            --load
+            . \
+            --push
 
-      - name: Push MySQL personalizado
-        run: |
-          docker push $MYSQL_ECR:${GITHUB_SHA}
-
-      - name: Build backend ventas
+      - name: Build y Push backend ventas
         run: |
           docker buildx build \
             --platform linux/amd64 \
             -t $VENTAS_ECR:${GITHUB_SHA} \
             ./back-Ventas_SpringBoot/Springboot-API-REST \
-            --load
+            --push
 
-      - name: Push backend ventas
-        run: |
-          docker push $VENTAS_ECR:${GITHUB_SHA}
-
-      - name: Build backend despachos
+      - name: Build y Push backend despachos
         run: |
           docker buildx build \
             --platform linux/amd64 \
             -t $DESPACHOS_ECR:${GITHUB_SHA} \
             ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO \
-            --load
+            --push
 
-      - name: Push backend despachos
-        run: |
-          docker push $DESPACHOS_ECR:${GITHUB_SHA}
-
-      - name: Build frontend
+      - name: Build y Push frontend
         run: |
           docker buildx build \
             --platform linux/amd64 \
             -t $FRONTEND_ECR:${GITHUB_SHA} \
             ./front_despacho \
-            --load
-
-      - name: Push frontend
-        run: |
-          docker push $FRONTEND_ECR:${GITHUB_SHA}
+            --push
       
       - name: Instalar kubectl
         uses: azure/setup-kubectl@v4
