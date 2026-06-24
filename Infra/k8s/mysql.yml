@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: TU_URL_DE_ECR/tu_repositorio_mysql:latest # <- Debes subir la imagen que creaste con tu Dockerfile
+          image: 381492310804.dkr.ecr.us-east-1.amazonaws.com/innovatech-chile-mysql:latest
           ports:
             - containerPort: 3306
           env:
@@ -23,10 +23,6 @@ spec:
               value: "root"
             - name: MYSQL_DATABASE
               value: "innova_tech_db"
-            - name: MYSQL_USER
-              value: "root" # <- Usando el que corregimos antes
-            - name: MYSQL_PASSWORD
-              value: "us_pass"
 ---
 # Servicio de MySQL (Interno)
 apiVersion: v1
