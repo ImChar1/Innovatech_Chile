@@ -45,6 +45,7 @@ Cada vez que inicies un laboratorio en AWS Academy, haz clic en el botón AWS De
 $env:AWS_ACCESS_KEY_ID="TU_ACCESS_KEY_AQUI"
 $env:AWS_SECRET_ACCESS_KEY="TU_SECRET_KEY_AQUI"
 $env:AWS_SESSION_TOKEN="TU_SESSION_TOKEN_COMPLETO_AQUI"
+$env:AWS_DEFAULT_REGION="us-east-1"
 
 
 ⚙️ Guía de Uso y Despliegue Paso a Paso
