@@ -1,79 +1,90 @@
-# Innovatech_Chile
-# Terraform AWS Infrastructure - Innovatech Chile
+# Innovatech Chile - Arquitectura de Microservicios en AWS EKS
 
-## Descripción
-Infraestructura optimizada y automatizada gestionada con Terraform para desplegar la plataforma de Innovatech Chile siguiendo buenas prácticas de arquitectura y seguridad (DevSecOps):
+## 📝 Descripción
+Este repositorio contiene la Infraestructura como Código (IaC) y las configuraciones de despliegue automatizadas para la plataforma **Innovatech Chile**. El proyecto implementa una arquitectura elástica y escalable basada en microservicios, orquestada mediante **Amazon EKS (Elastic Kubernetes Service)** y automatizada de extremo a extremo a través de pipelines de **DevSecOps** con **GitHub Actions**.
 
-* **VPC Personalizada:** Red aislada global para mitigar el radio de impacto de posibles ataques.
-* **Separación de Entornos (Instancias EC2 independientes):** Una máquina virtual dedicada exclusivamente al Frontend y otra instancia de mayor rendimiento destinada al Backend (Microservicios + Base de datos).
-* **NAT Gateway / Internet Gateway:** Configuración estricta de enrutamiento para permitir tráfico saliente seguro y control de peticiones entrantes.
-* **Seguridad Perimetral Exclusiva (Security Groups):** Reglas estrictas que aíslan la base de datos y los microservicios de backend, permitiendo tráfico entrante únicamente desde el Security Group del Frontend.
-* **Persistencia de Datos:** Arquitectura preparada para el acoplamiento de Docker Compose mediante volúmenes locales en el servidor de datos.
+### 🏗️ Componentes de la Arquitectura
+* **Frontend:** Aplicación SPA (Vite + React) servida a través de un proxy inverso **Nginx** que expone los recursos y redirige el tráfico de las APIs.
+* **Microservicio Ventas:** Backend desarrollado en **Spring Boot** para la gestión de productos y transacciones.
+* **Microservicio Despacho:** Backend desarrollado en **Spring Boot** para el control y logística de envíos.
+* **Capa de Persistencia:** Base de datos **MySQL** contenerizada bajo políticas estrictas de inicialización.
 
 ---
 
-## 🗺️ Estructura del proyecto
+## 🗺️ Estructura del Proyecto
 
 ```text
-innovatech-chile-infra/
-├── .gitignore
-├── README.md
-└── infra/
-    ├── etapa_1/
-    │   ├── main.tf
-    │   └── outputs.tf
-    └── etapa_2/
-        ├── main.tf
-        └── outputs.tf
+innovatech-chile/
+├── .github/workflows/    # Pipelines automatizados de CI/CD (GitHub Actions)
+├── front_despacho/       # Código fuente del Frontend y configuración de Nginx (nginx.conf)
+├── infra/
+│   ├── k8s/              # Manifiestos YAML de Kubernetes (Deployments, Services, ConfigMaps)
+│   └── terraform/        # Código de Infraestructura como Código para AWS (VPC, EKS, Subnets)
+└── README.md
+
+------------------------------------------------------------------------------------------
+🚀 Requisitos Previos
+Antes de iniciar, asegúrate de contar con las siguientes herramientas instaladas localmente:
+
+Terraform CLI (Versión >= 1.0)
+
+AWS CLI instalado.
+
+kubectl (Línea de comandos de Kubernetes).
+
+Llave privada SSH válida (vockey) proporcionada por el entorno de AWS.
+
+PASOS A SEGUIR EN ORDEN PARA HACER EL DESPLIEGUE, PRIMERO NOS LOGEAMOS EN AWS
+
+🔐 Configuración de Credenciales de AWS
+Para que Terraform pueda autenticarse correctamente en los laboratorios, es necesario configurar las claves temporales activas.
+
+Variables de Entorno en la Terminal
+Cada vez que inicies un laboratorio en AWS Academy, haz clic en el botón AWS Details, copia el bloque de credenciales e inyéctalas directamente en tu terminal de VS Code
+
+$env:AWS_ACCESS_KEY_ID="TU_ACCESS_KEY_AQUI"
+$env:AWS_SECRET_ACCESS_KEY="TU_SECRET_KEY_AQUI"
+$env:AWS_SESSION_TOKEN="TU_SESSION_TOKEN_COMPLETO_AQUI"
 
 
-🚀 Requisitos previos
-Terraform CLI versión >= 1.0
+⚙️ Guía de Uso y Despliegue Paso a Paso
+Paso 1: Inicialización de la Infraestructura
+Accede a la carpeta de infraestructura y aprovisiona el clúster elástico en AWS mediante Terraform:
 
-AWS CLI instalado y configurado o variables de entorno temporales de AWS Academy.
+# 1. Navegar al directorio de Terraform:
+cd infra/terraform
 
-Llave privada SSH compatible (vockey) disponible en el proveedor.
-
-
-## ⚙️ Flujo de uso
-
-1. Clona el repositorio.
-2. Inicializa Terraform:
-
-```
+# 2. Inicializar el proveedor y descargar módulos
 terraform init
-```
-Verifica el plan:
-```
+
+# 3. Validar los recursos que se van a construir
 terraform plan
-```
-Aplica los cambios:
-```
+
+# 4. Crear la VPC, Subnets y el clúster EKS en AWS
 terraform apply
 
 
-📦¿Qué despliega este proyecto?
-Módulo de Red y Conectividad: Diseña la VPC, subredes públicas y pasarelas de red (Internet Gateway / NAT Gateway) para garantizar la alta disponibilidad y la salida segura a internet de los servidores internos.
+Paso 2: Conexión con Kubernetes (kubectl)
+Una vez que Terraform finalice con éxito, debes enlazar tu terminal local con el nuevo clúster generado en AWS:
 
-Módulo de Cómputo y Seguridad: Despliega servidores virtuales dedicados (EC2 Linux) aprovisionando llaves SSH públicas y enlazando Security Groups herméticos que bloquean de forma nativa puertos críticos como el 3306 (MySQL) y los puertos lógicos del backend.
+aws eks update-kubeconfig --region us-east-1 --name innovatech-chile-cluster
 
-Interconexión Dinámica: Gestiona la transferencia de datos entre etapas mediante variables de entrada y bloques outputs que exponen las direcciones IP públicas requeridas por los pipelines de CI/CD.
+Paso 3: Monitoreo y Obtención de la URL Pública
+Cuando el pipeline de GitHub Actions termine de desplegar los cambios automáticamente tras el commit, ejecuta los siguientes comandos para verificar la salud del entorno y extraer el enlace de acceso:
+
+# Verificar que todos los Pods estén en estado 1/1 Running y sin reinicios
+kubectl get pods
+
+# Obtener la dirección IP externa del balanceador de carga
+kubectl get svc
+
+En la salida del comando kubectl get svc, busca la fila de frontend y copia la dirección DNS externa que aparece bajo la columna EXTERNAL-IP.
 
 
-🛡️ Mejores prácticas incluidas
-Principio de Menor Privilegio: Los Security Groups actúan como firewalls a nivel de instancia, impidiendo que internet tenga visibilidad directa del Backend y la Base de Datos.
-
-Infraestructura como Código (IaC): Todo el entorno es reproducible, eliminando configuraciones manuales propensas a errores humanos en la consola web.
-
-Seguridad en el Control de Versiones: Uso estricto de .gitignore para bloquear la subida de estados locales de Terraform (.tfstate), protegiendo contraseñas o credenciales temporales del escaneo público.
 
 
-🔮 Cómo extender este proyecto
-Implementar un Balanceador de Carga (ALB): Distribuir el tráfico entrante del puerto 80 del frontend hacia múltiples zonas de disponibilidad.
 
-Escalado Automático (Auto Scaling Groups): Añadir políticas basadas en consumo de CPU para incrementar dinámicamente el número de servidores EC2 ante alta demanda.
 
-Migración a Base de Datos Gestionada (AWS RDS): Desacoplar el contenedor MySQL del EC2 de backend y migrarlo a un servicio administrado con respaldos automáticos y Multi-AZ para garantizar tolerancia a fallos.
 
-Automatización CI/CD: Integración completa con GitHub Actions en la rama deploy utilizando la gestión nativa de Repository Secrets.
+
 
