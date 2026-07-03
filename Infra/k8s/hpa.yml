@@ -1,0 +1,38 @@
+# hpa.yml
+apiVersion: autoscaling/v2          # Define la versión de la API de Kubernetes que soporta características avanzadas de autoscaling.
+kind: HorizontalPodAutoscaler       # Especifica el tipo de recurso de Kubernetes que estamos creando (un HPA).
+metadata:                           # Contiene los datos para identificar unívocamente al recurso.
+  name: backend-ventas-hpa          # Asigna el nombre "backend-ventas-hpa" a este recurso dentro del clúster.
+spec:                               # Define la especificación y el comportamiento deseado para este autoscaler.
+  scaleTargetRef:                   # Referencia al recurso objetivo que este HPA va a vigilar y escalar.
+    apiVersion: apps/v1             # Indica la versión de la API del recurso objetivo.
+    kind: Deployment                # Especifica que el recurso a escalar es de tipo "Deployment".
+    name: backend-ventas            # Vincula este HPA exactamente al Deployment llamado "backend-ventas".
+  minReplicas: 1                    # Establece que siempre debe haber al menos 1 Pod ejecutándose (ahorro de costos).
+  maxReplicas: 5                    # Establece el límite máximo de 5 Pods para evitar que consuma recursos infinitos.
+  metrics:                          # Inicia la lista de métricas que el HPA evaluará para tomar decisiones.
+  - type: Resource                  # Indica que la métrica a medir es un recurso de cómputo del contenedor.
+    resource:                       # Detalles específicos del recurso que se va a monitorear.
+      name: cpu                     # Especifica que el recurso a monitorear es el uso de CPU.
+      target:                       # Define el objetivo o umbral que el HPA intentará mantener.
+        type: Utilization           # Indica que el objetivo se medirá en porcentaje de utilización (basado en los requests/limits).
+        averageUtilization: 70      # Si el promedio de CPU de todos los Pods supera el 70%, inyectará nuevos Pods.
+---                                 # Separador estándar de YAML para definir un segundo recurso en el mismo archivo.
+apiVersion: autoscaling/v2          # Define nuevamente la API para el segundo HPA.
+kind: HorizontalPodAutoscaler       # Declara un nuevo objeto de tipo HPA.
+metadata:                           # Metadatos del segundo recurso.
+  name: backend-despacho-hpa        # Asigna el nombre "backend-despacho-hpa" a este segundo autoscaler.
+spec:                               # Inicia la configuración de comportamiento para este HPA.
+  scaleTargetRef:                   # Referencia al segundo recurso objetivo a escalar.
+    apiVersion: apps/v1             # Versión de la API del Deployment objetivo.
+    kind: Deployment                # Indica que escalaremos un Deployment.
+    name: backend-despacho          # Vincula este HPA específicamente al Deployment "backend-despacho".
+  minReplicas: 1                    # Asegura un mínimo de 1 Pod ejecutándose para el servicio de despachos.
+  maxReplicas: 5                    # Fija un tope de 5 Pods máximos en momentos de alta demanda logística.
+  metrics:                          # Lista de métricas a evaluar para este segundo servicio.
+  - type: Resource                  # Tipo de métrica basada en recursos del sistema.
+    resource:                       # Especificaciones de la métrica.
+      name: cpu                     # Monitorea el consumo de CPU.
+      target:                       # Define el umbral de disparo para el escalado.
+        type: Utilization           # Evalúa el porcentaje de uso frente a lo asignado.
+        averageUtilization: 70      # Gatilla la creación de nuevos Pods si el uso de CPU promedio cruza el 70%.
