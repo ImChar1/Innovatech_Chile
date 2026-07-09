@@ -77,6 +77,10 @@ jobs:
           aws eks update-kubeconfig \
             --region $AWS_REGION \
             --name $CLUSTER_NAME
+
+      - name: Instalar Metrics Server (Para HPA y metricas de terminal)
+        run: |
+          kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
             
       - name: Aplicar los manifiestos de kubernetes
         run: |

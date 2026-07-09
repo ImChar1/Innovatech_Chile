@@ -81,11 +81,18 @@ kubectl get svc
 
 En la salida del comando kubectl get svc, busca la fila de frontend y copia la dirección DNS externa que aparece bajo la columna EXTERNAL-IP.
 
+# Es posible observar las metricas de CloudWatch al final del pipeline CD, de otro modo
+ ejecutar los siguientes comandos.
 
+# Para ver el consumo de los Nodos (EC2): 
+kubectl top nodes
 
+# Para ver el consumo de los Pods (Contenedores):
+kubectl top pods
 
+# Para que los comandos kubectl top funcionen, tu clúster necesita tener instalado un componente ligero llamado Metrics Server. CloudWatch instala su propio agente, pero la terminal usa este otro. 
 
-
+#Dicho eso en el pipeline en la linea 81 se completa esta tarea de manera automatica.
 
 
 
