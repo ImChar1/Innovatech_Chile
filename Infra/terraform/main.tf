@@ -22,6 +22,53 @@ resource "aws_vpc" "eks_vpc" {
   }
 }
 
+# --- GRUPO DE SEGURIDAD UNIFICADO PARA EKS ---
+resource "aws_security_group" "eks_sg" {
+  name        = "innovatech-eks-sg"
+  description = "Security Group para el Cluster EKS y Nodos Workers"
+  vpc_id      = aws_vpc.eks_vpc.id
+
+  # Regla 1: Permitir al Pipeline (GitHub Actions) administrar el clúster
+  ingress {
+    description = "Permitir trafico al API Server desde internet (GitHub Actions)"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Regla 2: Permitir que los nodos y los Pods hablen entre si (Backend -> MySQL)
+  ingress {
+    description = "Permitir comunicacion interna entre Nodos y Pods"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    self        = true
+  }
+
+  # Regla 3: Permitir que el LoadBalancer de AWS llegue al NGINX (Frontend)
+  ingress {
+    description = "Permitir trafico del Load Balancer hacia los NodePorts"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1" 
+    cidr_blocks = [aws_vpc.eks_vpc.cidr_block]
+  }
+
+  # Regla 4: Salida a internet (Obligatorio para descargar imagenes de ECR)
+  egress {
+    description = "Permitir toda la salida a internet"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "innovatech-eks-security-group"
+  }
+}
+
 resource "aws_subnet" "eks_subnet_1" {
   vpc_id                  = aws_vpc.eks_vpc.id
   cidr_block              = "10.0.10.0/24"
@@ -78,6 +125,8 @@ resource "aws_eks_cluster" "eks" {
       aws_subnet.eks_subnet_1.id,
       aws_subnet.eks_subnet_2.id
     ]
+    # Inyectamos el Security Group creado arriba
+    security_group_ids = [aws_security_group.eks_sg.id]
   }
 }
 
