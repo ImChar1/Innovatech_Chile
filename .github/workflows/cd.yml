@@ -117,3 +117,10 @@ jobs:
       - name: Esperar despliegue del frontend
         run: |
           kubectl rollout status deployment/frontend
+
+      - name: Link a las metricas de CloudWatch
+        run: |
+          echo "====================================================="
+          echo "📊 Despliegue exitoso. Revisa tus metricas aqui:"
+          echo "https://${AWS_REGION}.console.aws.amazon.com/cloudwatch/home?region=${AWS_REGION}#container-insights:performance"
+          echo "====================================================="

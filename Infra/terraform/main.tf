@@ -120,6 +120,10 @@ resource "aws_route_table_association" "rta_2" {
 resource "aws_eks_cluster" "eks" {
   name     = "innovatech-chile-cluster"
   role_arn = data.aws_iam_role.labrole.arn
+
+  # Habilita los logs del Control Plane hacia CloudWatch
+  enabled_cluster_log_types = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
+
   vpc_config {
     subnet_ids = [
       aws_subnet.eks_subnet_1.id,
@@ -205,4 +209,15 @@ output "frontend_ecr_url" {
 
 output "mysql_ecr_url" {
   value = aws_ecr_repository.mysql_repo.repository_url
+}
+
+# --- CLOUDWATCH CONTAINER INSIGHTS ---
+resource "aws_eks_addon" "cloudwatch_observability" {
+  cluster_name  = aws_eks_cluster.eks.name
+  addon_name    = "amazon-cloudwatch-observability"
+  
+  # Asegura que el clúster y los nodos estén listos antes de instalar el agente
+  depends_on = [
+    aws_eks_node_group.workers
+  ]
 }
