@@ -20,9 +20,9 @@ spec:
             - containerPort: 3306
           env:
             - name: MYSQL_ROOT_PASSWORD
-              value: "root"
+              value: "${DB_PASSWORD}"
             - name: MYSQL_DATABASE
-              value: "innova_tech_db"
+              value: "${MYSQL_DATABASE}"
 ---
 # Servicio de MySQL (Interno)
 apiVersion: v1
