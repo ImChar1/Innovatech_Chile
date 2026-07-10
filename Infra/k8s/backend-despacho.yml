@@ -21,17 +21,17 @@ spec:
             - containerPort: 8081
           env:
             - name: DB_ENDPOINT
-              value: "mysql"
+              value: "${DB_ENDPOINT}"
             - name: DB_PORT
-              value: "3306"
+              value: "${DB_PORT}"
             - name: DB_NAME
-              value: "innova_tech_db"
+              value: "${MYSQL_DATABASE}"
             - name: DB_USERNAME
-              value: "root"
+              value: "${DB_USERNAME}"
             - name: DB_PASSWORD
-              value: "us_pass"
+              value: "${DB_PASSWORD}"
             - name: DB_HOST
-              value: "mysql"
+              value: "${DB_HOST}"
 ---
 # Servicio Backend Despacho (Interno)
 apiVersion: v1

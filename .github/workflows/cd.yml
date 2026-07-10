@@ -85,6 +85,20 @@ jobs:
       - name: Aplicar los manifiestos de kubernetes
         run: |
           kubectl apply -f Infra/k8s/
+      
+      - name: Reemplazar variables de entorno en manifiestos YAML
+        env:
+          MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_ENDPOINT: ${{ secrets.DB_ENDPOINT }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+        run: |
+          apt-get update && apt-get install -y gettext-base
+          for file in Infra/k8s/*.yml; do
+            envsubst < "$file" > "temp.yml" && mv "temp.yml" "$file"
+          done
           
       - name: Actualizar imagen de MySQL
         run: |

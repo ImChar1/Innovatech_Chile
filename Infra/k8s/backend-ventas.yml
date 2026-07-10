@@ -21,17 +21,17 @@ spec:
             - containerPort: 8080
           env:
             - name: DB_ENDPOINT
-              value: "mysql" # Se conecta al nombre del Service de K8s
+              value: "${DB_ENDPOINT}" 
             - name: DB_PORT
-              value: "3306"
+              value: "${DB_PORT}"
             - name: DB_NAME
-              value: "innova_tech_db"
+              value: "${MYSQL_DATABASE}"
             - name: DB_USERNAME
-              value: "root"
+              value: "${DB_USERNAME}"
             - name: DB_PASSWORD
-              value: "us_pass"
+              value: "${DB_PASSWORD}"
             - name: DB_HOST
-              value: "mysql"
+              value: "${DB_HOST}"
 ---
 # Servicio Backend Ventas (Interno)
 apiVersion: v1
