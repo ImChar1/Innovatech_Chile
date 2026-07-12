@@ -3,10 +3,11 @@ name: CI - Tests Backend (Innovatech Chile)
 # Corre con push a la rama feature/prueba-ci (donde se prueba el CI
 # antes de hacer el Pull Request a develop). Es un workflow totalmente
 # independiente del cd.yml: si este falla, NO afecta al despliegue, y viceversa.
+#
 on:
   push:
     branches:
-      - "feature/prueba-ci"
+      - "develop"
 
 jobs:
   test-ventas:
