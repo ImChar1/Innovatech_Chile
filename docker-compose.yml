@@ -12,14 +12,14 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql # <- PUNTO 2 DE LA RÚBRICA: Named volume
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   # 2. BACKEND DE VENTAS (Ruta corregida para el Pipeline)
   backend-ventas:
-    build: ./back-Ventas_SpringBoot # <- Alineado con el archivo .yml
+    build: ./back-Ventas_SpringBoot/Springboot-API-REST #ruta corregida 
     image: tech_ventas:1.0
     ports:
       - "8080:8080"
@@ -36,7 +36,7 @@ services:
 
   # 3. BACKEND DE DESPACHO (Ruta corregida para el Pipeline)
   backend-despacho:
-    build: ./back-Despachos_SpringBoot # <- Alineado con el archivo .yml
+    build: ./back-Despachos_SpringBoot/Springboot-API-REST-DESPACHO # <- Alineado con el archivo .yml
     image: tech_despacho:1.0
     ports:
       - "8081:8081"
